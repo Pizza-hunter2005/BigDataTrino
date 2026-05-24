@@ -1,0 +1,60 @@
+DROP TABLE IF EXISTS mock_data;
+
+CREATE TABLE mock_data (
+    id integer,
+    customer_first_name text,
+    customer_last_name text,
+    customer_age integer,
+    customer_email text,
+    customer_country text,
+    customer_postal_code text,
+    customer_pet_type text,
+    customer_pet_name text,
+    customer_pet_breed text,
+    seller_first_name text,
+    seller_last_name text,
+    seller_email text,
+    seller_country text,
+    seller_postal_code text,
+    product_name text,
+    product_category text,
+    product_price double precision,
+    product_quantity integer,
+    sale_date text,
+    sale_customer_id integer,
+    sale_seller_id integer,
+    sale_product_id integer,
+    sale_quantity integer,
+    sale_total_price double precision,
+    store_name text,
+    store_location text,
+    store_city text,
+    store_state text,
+    store_country text,
+    store_phone text,
+    store_email text,
+    pet_category text,
+    product_weight double precision,
+    product_color text,
+    product_size text,
+    product_brand text,
+    product_material text,
+    product_description text,
+    product_rating double precision,
+    product_reviews integer,
+    product_release_date text,
+    product_expiry_date text,
+    supplier_name text,
+    supplier_contact text,
+    supplier_email text,
+    supplier_phone text,
+    supplier_address text,
+    supplier_city text,
+    supplier_country text
+);
+
+COPY mock_data FROM '/data/MOCK_DATA (5).csv' WITH (FORMAT csv, HEADER true);
+COPY mock_data FROM '/data/MOCK_DATA (6).csv' WITH (FORMAT csv, HEADER true);
+COPY mock_data FROM '/data/MOCK_DATA (7).csv' WITH (FORMAT csv, HEADER true);
+COPY mock_data FROM '/data/MOCK_DATA (8).csv' WITH (FORMAT csv, HEADER true);
+COPY mock_data FROM '/data/MOCK_DATA (9).csv' WITH (FORMAT csv, HEADER true);

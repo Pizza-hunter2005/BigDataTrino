@@ -66,3 +66,177 @@
 3. Инструкция, как запускать Trino-скрипты для проверки лабораторной работы.
 4. Код Trino трансформации данных из исходной модели в снежинку/звезду в ClickHouse.
 5. Код Trino трансформации данных из снежинки/звезды в отчеты в ClickHouse.
+
+
+
+## Архитектура
+
+Поток данных:
+
+```text
+CSV 1-5 -> ClickHouse.mock_data  --\
+                                      -> Trino -> ClickHouse snowflake -> ClickHouse reports
+CSV 6-10 -> PostgreSQL.mock_data --/
+```
+
+В качестве основы использована модель из лабораторной `BDSnowflake`: данные нормализуются в измерения клиентов, продавцов, магазинов, поставщиков, товаров и факт продаж.
+
+Служебная объединенная таблица:
+
+- `stg_mock_data` - единый слой из PostgreSQL и ClickHouse.
+
+
+Отчеты:
+
+- `report_product_sales`;
+- `report_customer_sales`;
+- `report_time_sales`;
+- `report_store_sales`;
+- `report_supplier_sales`;
+- `report_product_quality`.
+
+## Запуск
+
+Перейти в папку проекта:
+
+```bash
+cd BigDataTrino
+```
+
+Запустить PostgreSQL, ClickHouse и Trino:
+
+```bash
+docker compose up -d
+```
+
+При первом запуске:
+
+- PostgreSQL автоматически загрузит 5000 строк из последних 5 CSV-файлов;
+- ClickHouse автоматически загрузит 5000 строк из первых 5 CSV-файлов;
+- Trino подключится к ним через каталоги `postgresql` и `clickhouse`.
+
+Проверить источники:
+
+```bash
+docker compose exec postgres psql -U bigdata -d bigdata -c "select count(*) from mock_data;"
+docker compose exec clickhouse clickhouse-client --user bigdata --password bigdata --query "select count() from mock_data"
+docker compose exec trino trino --execute "show catalogs"
+```
+
+## Запуск Trino ETL
+
+Построить модель снежинки в ClickHouse:
+
+```bash
+docker compose exec trino trino --file /sql/01_build_snowflake.sql
+```
+
+Построить 6 отчетных таблиц:
+
+```bash
+docker compose exec trino trino --file /sql/02_build_reports.sql
+```
+
+
+## Проверка результата
+
+Проверить факт продаж и отчеты:
+
+```bash
+docker compose exec clickhouse clickhouse-client --user bigdata --password bigdata --query "
+select 'fact_sales' as table_name, count() as rows from fact_sales
+union all select 'report_product_sales', count() from report_product_sales
+union all select 'report_customer_sales', count() from report_customer_sales
+union all select 'report_time_sales', count() from report_time_sales
+union all select 'report_store_sales', count() from report_store_sales
+union all select 'report_supplier_sales', count() from report_supplier_sales
+union all select 'report_product_quality', count() from report_product_quality
+"
+```
+
+Результат:
+
+```text
+fact_sales               10000
+report_product_sales      1000
+report_customer_sales     1000
+report_time_sales           12
+report_store_sales       10000
+report_supplier_sales    10000
+report_product_quality    1000
+```
+
+Примеры аналитических запросов через Trino:
+
+```bash
+docker compose exec trino trino --execute "
+select product_name, quantity_sold, revenue
+from clickhouse.default.report_product_sales
+order by sales_rank
+limit 10
+"
+```
+
+```bash
+docker compose exec trino trino --execute "
+select customer_first_name, customer_last_name, customer_country, total_spent, avg_check
+from clickhouse.default.report_customer_sales
+order by customer_rank
+limit 10
+"
+```
+
+```bash
+docker compose exec trino trino --execute "
+select sale_year, sale_month, revenue, orders_count, avg_order_amount
+from clickhouse.default.report_time_sales
+order by sale_year, sale_month
+"
+```
+
+## Подключения
+
+PostgreSQL:
+
+- host: `localhost`
+- port: `55432`
+- database: `bigdata`
+- user: `bigdata`
+- password: `bigdata`
+
+ClickHouse HTTP:
+
+- host: `localhost`
+- port: `18123`
+- user: `bigdata`
+- password: `bigdata`
+
+ClickHouse Native:
+
+- host: `localhost`
+- port: `19000`
+- user: `bigdata`
+- password: `bigdata`
+
+Trino:
+
+- host: `localhost`
+- port: `8080`
+- user: `student`
+
+## Отчет о работе
+
+1. Подготовлен `docker-compose.yml` с PostgreSQL, ClickHouse и Trino.
+
+2. Настроена автоматическая загрузка источников:
+   PostgreSQL получает 5 CSV-файлов, ClickHouse получает другие 5 CSV-файлов.
+
+3. Настроены Trino catalogs:
+   `postgresql.properties` для PostgreSQL и `clickhouse.properties` для ClickHouse.
+
+4. Реализован Trino ETL `sql/01_build_snowflake.sql`:
+   скрипт объединяет источники, строит staging-таблицу и нормализованную модель снежинки/звезды в ClickHouse.
+
+5. Реализован Trino ETL `sql/02_build_reports.sql`:
+   скрипт строит 6 отчетных таблиц в ClickHouse на основе факта продаж и измерений.
+
